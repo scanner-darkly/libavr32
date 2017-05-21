@@ -75,12 +75,11 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
 // return 1 if removed, 0 if not found
 u8 timer_remove( softTimer_t* t) {
   int i;
-  volatile softTimer_t* pt = NULL;
-  u8 found = 0;
-
   // disable timer interrupts
   timers_pause();
 
+  volatile softTimer_t* pt = NULL;
+  u8 found = 0;
 
   // not linked
   if( (t->next == NULL) || (t->prev == NULL)) {
@@ -152,22 +151,29 @@ u8 timer_remove( softTimer_t* t) {
    timers_resume();
 }
 
-static volatile s8 timer_pause_resume_nesting = 0;
+//static volatile s8 timer_pause_resume_nesting = 0;
+static volatile irqflags_t irqflags;
 
 void timers_pause( void ) {
+  irqflags = cpu_irq_save();
+  /*
   if(timer_pause_resume_nesting == 0) {
     cpu_irq_disable_level(APP_TC_IRQ_PRIORITY);
     cpu_irq_disable_level(UI_IRQ_PRIORITY);
   }
   timer_pause_resume_nesting++;
+  */
 }
 
 void timers_resume( void ) {
+  /*
   timer_pause_resume_nesting--;
   if(timer_pause_resume_nesting == 0) {
     cpu_irq_enable_level(APP_TC_IRQ_PRIORITY);
     cpu_irq_enable_level(UI_IRQ_PRIORITY);
   }
+  */
+  cpu_irq_restore(irqflags);
 }
 
 // process the timer list, presumably from TC interrupt
