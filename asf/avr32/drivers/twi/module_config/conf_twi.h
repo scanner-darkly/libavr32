@@ -49,6 +49,6 @@
 #include "board.h"
 
 
-#define CONF_TWI_IRQ_LEVEL         1
+#define CONF_TWI_IRQ_LEVEL         3
 
 #endif // _CONF_TWI_H
