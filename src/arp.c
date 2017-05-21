@@ -132,10 +132,10 @@ void arp_seq_init(arp_seq_t* s) {
 }
 
 bool arp_seq_set_state(arp_seq_t *s, arp_seq_state state) {
-	bool result = false;
-
   // disable timer interrupts
   timers_pause();
+
+	bool result = false;
 
 	s->state = state;
 	result = true;
