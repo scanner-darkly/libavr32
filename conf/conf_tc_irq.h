@@ -16,7 +16,7 @@
 #define APP_TC_IRQ             AVR32_TC_IRQ0
 #define APP_TC_IRQ_GROUP       AVR32_TC_IRQ_GROUP
 
-void irqs_pause( void );
-void irqs_resume( void );
+irqflags_t irqs_pause( void );
+void irqs_resume( irqflags_t irq_flags );
 
 #endif

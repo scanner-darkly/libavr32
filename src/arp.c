@@ -133,7 +133,7 @@ void arp_seq_init(arp_seq_t* s) {
 
 bool arp_seq_set_state(arp_seq_t *s, arp_seq_state state) {
   // disable timer interrupts
-  irqs_pause();
+  irqflags_t irq_flags = irqs_pause();
 
 	bool result = false;
 
@@ -141,7 +141,7 @@ bool arp_seq_set_state(arp_seq_t *s, arp_seq_state state) {
 	result = true;
 
   // enable timer interrupts
-  irqs_resume();
+  irqs_resume(irq_flags);
 
 	return result;
 }

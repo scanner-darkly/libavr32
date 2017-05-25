@@ -28,7 +28,7 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
   int ret;
 
   // disable timer interrupts
-  irqs_pause();
+  irqflags_t irq_flags = irqs_pause();
 
   // print_dbg("\r\n timer_add, @ 0x");
   // print_dbg_hex((u32)t);
@@ -67,7 +67,7 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
   }
 
   // enable timer interrupts
-  irqs_resume();
+  irqs_resume(irq_flags);
   return ret;
 }
 
@@ -76,14 +76,14 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
 u8 timer_remove( softTimer_t* t) {
   int i;
   // disable timer interrupts
-  irqs_pause();
+  irqflags_t irq_flags = irqs_pause();
 
   volatile softTimer_t* pt = NULL;
   u8 found = 0;
 
   // not linked
   if( (t->next == NULL) || (t->prev == NULL)) {
-      irqs_resume();
+      irqs_resume(irq_flags);
       return 0;
   }
 
@@ -117,7 +117,7 @@ u8 timer_remove( softTimer_t* t) {
   }
 
   // enable interrupts
-  irqs_resume();
+  irqs_resume(irq_flags);
   return found;
 }
 
@@ -129,7 +129,7 @@ u8 timer_remove( softTimer_t* t) {
    volatile softTimer_t* pt;
 
    // disable timer interrupts
-   irqs_pause();
+   irqflags_t irq_flags = irqs_pause();
 
    if(head != NULL) {
      // print_dbg("\r\n clearing timer list, size: ");
@@ -148,7 +148,7 @@ u8 timer_remove( softTimer_t* t) {
    num = 0;
 
    // enable interrupts
-   irqs_resume();
+   irqs_resume(irq_flags);
 }
 
 // process the timer list, presumably from TC interrupt
