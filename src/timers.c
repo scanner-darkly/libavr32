@@ -27,8 +27,8 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
   //  int i;
   int ret;
 
-  // disable timer interrupts
-  irqflags_t irq_flags = irqs_pause();
+  // disable interrupts
+  u8 irq_flags = irqs_pause();
 
   // print_dbg("\r\n timer_add, @ 0x");
   // print_dbg_hex((u32)t);
@@ -75,8 +75,8 @@ u8 timer_add( softTimer_t* t, u32 ticks, timer_callback_t callback, void* obj) {
 // return 1 if removed, 0 if not found
 u8 timer_remove( softTimer_t* t) {
   int i;
-  // disable timer interrupts
-  irqflags_t irq_flags = irqs_pause();
+  // disable interrupts
+  u8 irq_flags = irqs_pause();
 
   volatile softTimer_t* pt = NULL;
   u8 found = 0;
@@ -128,8 +128,8 @@ u8 timer_remove( softTimer_t* t) {
    int i;
    volatile softTimer_t* pt;
 
-   // disable timer interrupts
-   irqflags_t irq_flags = irqs_pause();
+   // disable interrupts
+   u8 irq_flags = irqs_pause();
 
    if(head != NULL) {
      // print_dbg("\r\n clearing timer list, size: ");
