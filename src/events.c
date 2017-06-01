@@ -53,7 +53,7 @@ volatile  static event_t sysEvents[ MAX_EVENTS ];
 u8 event_next( event_t *e ) {
   u8 status;
 
-  irqflags_t flags = cpu_irq_save();
+  u8 flags = irqs_pause();
 
   // if pointers are equal, the queue is empty... don't allow idx's to wrap!
   if ( getIdx != putIdx ) {
@@ -67,7 +67,7 @@ u8 event_next( event_t *e ) {
     status = false;
   }
 
-  cpu_irq_restore(flags);
+  irqs_resume(flags);
 
   return status;
 }
@@ -78,7 +78,7 @@ u8 event_post( event_t *e ) {
    // print_dbg("\r\n posting event, type: ");
    // print_dbg_ulong(e->type);
 
-  irqflags_t flags = cpu_irq_save();
+  u8 flags = irqs_pause();
   u8 status = false;
 
   // increment write idx, posbily wrapping
@@ -93,7 +93,7 @@ u8 event_post( event_t *e ) {
     putIdx = saveIndex;
   } 
 
-  cpu_irq_restore(flags);
+  irqs_resume(flags);
 
   //if (!status)
   //  print_dbg("\r\n event queue full!");
