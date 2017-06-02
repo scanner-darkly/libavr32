@@ -1,6 +1,6 @@
 #include "print_funcs.h"
 
-#include "conf_tc_irq.h"
+#include "interrupts.h"
 #include "timers.h"
 
 //-----------------------------------------------

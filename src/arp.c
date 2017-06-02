@@ -7,7 +7,7 @@
 
 #include "euclidean/euclidean.h"
 
-#include "conf_tc_irq.h"
+#include "interrupts.h"
 
 // this
 #include "arp.h"

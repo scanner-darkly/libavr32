@@ -1,5 +1,6 @@
 #include "interrupt.h"
 #include "conf_tc_irq.h"
+#include "interrupts.h"
 #include "types.h"
 
 u8 irqs_pause( void ) {

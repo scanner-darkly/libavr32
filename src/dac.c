@@ -5,7 +5,7 @@
 #include "dac.h"
 
 #include "conf_board.h"
-#include "conf_tc_irq.h"
+#include "interrupts.h"
 
 
 struct {
