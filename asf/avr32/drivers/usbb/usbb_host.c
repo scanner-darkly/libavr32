@@ -81,7 +81,7 @@ extern void udc_start(void);
 #endif
 
 #ifndef UHD_USB_INT_LEVEL
-# define UHD_USB_INT_LEVEL 2 // By default USB interrupt have low priority
+# define UHD_USB_INT_LEVEL 0 // By default USB interrupt have low priority
 #endif
 
 // Optional UHC callbacks
