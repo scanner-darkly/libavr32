@@ -75,8 +75,8 @@ refresh_t monome_refresh;
 static monomeDesc mdesc = {
   .protocol = eProtocolNumProtocols, // dummy
   .device = eDeviceNumDevices, // dummy
-  .cols = 0,
-  .rows = 0,
+  .cols = 16,
+  .rows = 8,
   .encs = 0,
   .tilt = 0,
 };
