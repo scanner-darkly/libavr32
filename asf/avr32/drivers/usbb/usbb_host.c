@@ -55,6 +55,9 @@
 #include "usbb_host.h"
 #include <string.h>
 #include <stdlib.h>
+#include "print_funcs.h"
+
+#define USBH_DEBUG 0
 
 // Fix the fact that, for some IAR header files, the AVR32_USBB_IRQ_GROUP
 // define has been defined as AVR32_USB_IRQ_GROUP instead.
@@ -191,6 +194,8 @@ enum uhd_usbb_state_enum {
  */
 static void uhd_sleep_mode(enum uhd_usbb_state_enum new_state)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_sleep_mode\r\n");
+    
 	enum sleepmgr_mode sleep_mode[] = {
 		SLEEPMGR_STATIC, // UHD_STATE_OFF (not used)
 		SLEEPMGR_STATIC, // UHD_STATE_WAIT_ID_HOST
@@ -417,6 +422,8 @@ ISR(otg_interrupt, AVR32_USBB_IRQ_GROUP, UHD_USB_INT_LEVEL)
 
 bool otg_dual_enable(void)
 {
+    if (USBH_DEBUG) print_dbg("-- otg_dual_enable\r\n");
+    
 	if (otg_initialized) {
 		return false; // Dual role already initialized
 	}
@@ -461,6 +468,8 @@ bool otg_dual_enable(void)
 
 void otg_dual_disable(void)
 {
+    if (USBH_DEBUG) print_dbg("-- otg_dual_disable\r\n");
+    
 	if (!otg_initialized) {
 		return; // Dual role not initialized
 	}
@@ -481,6 +490,8 @@ void otg_dual_disable(void)
 
 void uhd_enable(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_enable\r\n");
+    
 	irqflags_t flags;
 
 	// To avoid USB interrupt before end of initialization
@@ -566,6 +577,8 @@ void uhd_enable(void)
 
 void uhd_disable(bool b_id_stop)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_disable\r\n");
+    
 	irqflags_t flags;
 
 	// Check USB clock ready after a potential sleep mode < IDLE
@@ -633,12 +646,15 @@ uint16_t uhd_get_microframe_number(void)
 
 void uhd_send_reset(uhd_callback_reset_t callback)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_send_reset\r\n");
 	uhd_reset_callback = callback;
 	uhd_start_reset();
 }
 
 void uhd_suspend(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_suspend\r\n");
+    
 	if (uhd_ctrl_request_timeout) {
 		// Delay suspend after setup requests
 		uhd_b_suspend_requested = true;
@@ -661,6 +677,8 @@ bool uhd_is_suspend(void)
 
 void uhd_resume(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_resume\r\n");
+    
 	if (Is_uhd_sof_enabled()) {
 		// Currently in IDLE mode (!=Suspend)
 		if (uhd_suspend_start) {
@@ -681,6 +699,8 @@ void uhd_resume(void)
 
 bool uhd_ep0_alloc(usb_add_t add, uint8_t ep_size)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ep0_alloc\r\n");
+    
 	if (ep_size < 8) {
 		return false;
 	}
@@ -721,6 +741,8 @@ bool uhd_ep0_alloc(usb_add_t add, uint8_t ep_size)
 
 bool uhd_ep_alloc(usb_add_t add, usb_ep_desc_t * ep_desc)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ep_alloc\r\n");
+    
 	uint8_t ep_addr;
 	uint8_t ep_type;
 	uint8_t ep_dir;
@@ -795,6 +817,7 @@ bool uhd_ep_alloc(usb_add_t add, usb_ep_desc_t * ep_desc)
 
 void uhd_ep_free(usb_add_t add, usb_ep_t endp)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ep_free\r\n");
 #ifdef USB_HOST_HUB_SUPPORT
 	if (endp == 0) {
 		// Control endpoint does not be unallocated
@@ -848,6 +871,8 @@ bool uhd_setup_request(
 		uhd_callback_setup_run_t callback_run,
 		uhd_callback_setup_end_t callback_end)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_setup_request\r\n");
+    
 	irqflags_t flags;
 	struct uhd_ctrl_request_t *request;
 	bool b_start_request = false;
@@ -899,7 +924,12 @@ bool uhd_ep_run(
 	uhd_pipe_job_t *ptr_job;
 
 	pipe = uhd_get_pipe(add,endp);
+    
+    if (USBH_DEBUG) print_dbg("------- uhd_ep_run ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+    
 	if (pipe == AVR32_USBB_EPT_NUM) {
+        if (USBH_DEBUG) print_dbg(" pipe not found\r\n");
 		return false; // pipe not found
 	}
 
@@ -908,6 +938,7 @@ bool uhd_ep_run(
 	flags = cpu_irq_save();
 	if (ptr_job->busy == true) {
 		cpu_irq_restore(flags);
+        if (USBH_DEBUG) print_dbg(" job already running\r\n");
 		return false; // Job already on going
 	}
 	ptr_job->busy = true;
@@ -922,8 +953,33 @@ bool uhd_ep_run(
 	cpu_irq_restore(flags);
 
 	// Request first transfer
+    if (USBH_DEBUG) print_dbg("\r\n");
 	uhd_pipe_trans_complet(pipe);
+    if (USBH_DEBUG) print_dbg("------- uhd_ep_run job created\r\n");
 	return true;
+}
+
+bool uhi_abort_read_if_not_busy(usb_add_t add, usb_ep_t endp) {
+	uint8_t pipe = uhd_get_pipe(add,endp);
+	if (pipe == AVR32_USBB_EPT_NUM) {
+        print_dbg("## ! pipe not found\r\n");
+		return true; // pipe not found
+	}
+
+    uhd_pipe_job_t *ptr_job = &uhd_pipe_job[pipe - 1];
+    
+    if (!ptr_job->busy) return true;
+    
+    /*
+    if (ptr_job->nb_trans) {
+        print_dbg("## ! already transferring\r\n");
+        // if (ptr_job->timeout) {
+        return false; // job in progress
+    }
+    */
+    
+    uhd_ep_abort(add, endp);
+    return true;
 }
 
 void uhd_ep_abort(usb_add_t add, usb_ep_t endp)
@@ -931,6 +987,11 @@ void uhd_ep_abort(usb_add_t add, usb_ep_t endp)
 	uint8_t pipe;
 
 	pipe = uhd_get_pipe(add,endp);
+
+    if (USBH_DEBUG) print_dbg("-- uhd_ep_abort ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+    if (USBH_DEBUG) print_dbg("\r\n");
+
 	if (pipe == AVR32_USBB_EPT_NUM) {
 		return; // pipe not found
 	}
@@ -989,23 +1050,35 @@ static void uhd_interrupt(void)
 	// Manage pipe interrupts
 	pipe_int = uhd_get_interrupt_pipe_number();
 	if (pipe_int == 0) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_ctrl_interrupt\r\n");
 		// Interrupt acked by control endpoint managed
 		uhd_ctrl_interrupt();
 		return;
 	}
 	if (pipe_int != AVR32_USBB_EPT_NUM) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_pipe_interrupt\r\n");
 		// Interrupt acked by bulk/interrupt/isochronous endpoint
 		uhd_pipe_interrupt(pipe_int);
 		return;
 	}
 	pipe_int = uhd_get_pipe_dma_interrupt_number();
 	if (pipe_int != AVR32_USBB_EPT_NUM) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_pipe_interrupt_dma\r\n");
 		// Interrupt DMA acked by bulk/interrupt/isochronous endpoint
 		uhd_pipe_interrupt_dma(pipe_int);
 		return;
 	}
 	// USB bus reset detection
 	if (Is_uhd_reset_sent()) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_ack_reset_sent\r\n");
 		uhd_ack_reset_sent();
 		if (uhd_reset_callback != NULL) {
 			uhd_reset_callback();
@@ -1015,6 +1088,9 @@ static void uhd_interrupt(void)
 
 	// Manage dis/connection event
 	if (Is_uhd_disconnection() && Is_uhd_disconnection_int_enabled()) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_ack_disconnection\r\n");
 		uhd_ack_disconnection();
 		uhd_disable_disconnection_int();
 		// Stop reset signal, in case of disconnection during reset
@@ -1032,6 +1108,9 @@ static void uhd_interrupt(void)
 		return;
 	}
 	if (Is_uhd_connection() && Is_uhd_connection_int_enabled()) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" uhd_ack_connection\r\n");
 		uhd_ack_connection();
 		uhd_disable_connection_int();
 		uhd_enable_disconnection_int();
@@ -1045,6 +1124,9 @@ static void uhd_interrupt(void)
 
 	// Manage Vbus error
 	if (Is_uhd_vbus_error_interrupt()) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" manage vbus error\r\n");
 		uhd_ack_vbus_error_interrupt();
 		UHC_VBUS_ERROR();
 		return;
@@ -1056,6 +1138,10 @@ static void uhd_interrupt(void)
 
 	if (Is_uhd_wakeup_interrupt_enabled() && (Is_uhd_wakeup() ||
 			Is_uhd_downstream_resume() || Is_uhd_upstream_resume())) {
+        
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" wakeup/resumes interrupts\r\n");
 		// Disable wakeup/resumes interrupts
 		AVR32_USBB.uhinteclr = AVR32_USBB_UHINTECLR_HWUPIEC_MASK
 				| AVR32_USBB_UHINTECLR_RSMEDIEC_MASK
@@ -1082,6 +1168,9 @@ static void uhd_interrupt(void)
 
 	// Manage Vbus state change
 	if (Is_otg_vbus_transition()) {
+        if (USBH_DEBUG) print_dbg("-- uhd_interrupt ");
+        if (USBH_DEBUG) print_dbg_ulong(pipe_int);
+        if (USBH_DEBUG) print_dbg(" vbus state change\r\n");
 		otg_ack_vbus_transition();
 		if (Is_otg_vbus_high()) {
 			uhd_sleep_mode(UHD_STATE_DISCONNECT);
@@ -1189,6 +1278,9 @@ static void uhd_sof_interrupt(void)
 				// Timeout enabled on this job
 				if (--ptr_job->timeout == 0) {
 					// Abort job
+                    if (USBH_DEBUG) print_dbg("-- uhd_sof_interrupt ");
+                    if (USBH_DEBUG) print_dbg_ulong(pipe);
+                    if (USBH_DEBUG) print_dbg(" job timeout\r\n");
 					uhd_ep_abort_pipe(pipe,UHD_TRANS_TIMEOUT);
 				}
 			}
@@ -1294,6 +1386,8 @@ static void uhd_ctrl_interrupt(void)
  */
 static void uhd_ctrl_phase_setup(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_setup\r\n");
+    
 	union{
 		usb_setup_req_t req;
 		uint64_t value64;
@@ -1345,6 +1439,8 @@ static void uhd_ctrl_phase_setup(void)
  */
 static void uhd_ctrl_phase_data_in_start(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_data_in_start\r\n");
+    
 	uhd_ctrl_request_phase = UHD_CTRL_REQ_PHASE_DATA_IN;
 	uhd_configure_pipe_token(0, AVR32_USBB_PTOKEN_IN);
 	uhd_ack_in_received(0);
@@ -1360,6 +1456,8 @@ static void uhd_ctrl_phase_data_in_start(void)
  */
 static void uhd_ctrl_phase_data_in(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_data_in\r\n");
+
 	bool b_short_packet;
 	uint8_t *ptr_ep_data;
 	uint8_t nb_byte_received;
@@ -1421,6 +1519,7 @@ uhd_ctrl_phase_data_in_end:
  */
 static void uhd_ctrl_phase_zlp_in(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_zlp_in\r\n");
 	uhd_ctrl_request_phase = UHD_CTRL_REQ_PHASE_ZLP_IN;
 	uhd_configure_pipe_token(0, AVR32_USBB_PTOKEN_IN);
 	uhd_ack_in_received(0);
@@ -1436,6 +1535,8 @@ static void uhd_ctrl_phase_zlp_in(void)
  */
 static void uhd_ctrl_phase_data_out(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_data_out\r\n");
+    
 	uint8_t *ptr_ep_data;
 	uint8_t ep_ctrl_size;
 
@@ -1488,6 +1589,7 @@ static void uhd_ctrl_phase_data_out(void)
  */
 static void uhd_ctrl_phase_zlp_out(void)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_phase_zlp_out\r\n");
 	uhd_ctrl_request_phase = UHD_CTRL_REQ_PHASE_ZLP_OUT;
 	uhd_configure_pipe_token(0, AVR32_USBB_PTOKEN_OUT);
 	uhd_ack_out_ready(0);
@@ -1503,6 +1605,7 @@ static void uhd_ctrl_phase_zlp_out(void)
 */
 static void uhd_ctrl_request_end(uhd_trans_status_t status)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_ctrl_request_end\r\n");
 	irqflags_t flags;
 	uhd_callback_setup_end_t callback_end;
 	struct uhd_ctrl_request_t *request_to_free;
@@ -1600,6 +1703,10 @@ static uint8_t uhd_get_pipe(usb_add_t add, usb_ep_t endp)
  */
 static void uhd_pipe_trans_complet(uint8_t pipe)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_pipe_trans_complet ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+    if (USBH_DEBUG) print_dbg("\r\n");
+
 	uint32_t uhd_dma_ctrl = 0;
 	uhd_pipe_job_t *ptr_job;
 	iram_size_t max_trans;
@@ -1608,12 +1715,14 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 
 	// Get job corresponding at endpoint
 	ptr_job = &uhd_pipe_job[pipe - 1];
-
+    
 	if (!ptr_job->busy) {
+        if (USBH_DEBUG) print_dbg(".. no job\r\n");
 		return; // No job is running, then ignore it (system error)
 	}
 
 	if (ptr_job->nb_trans != ptr_job->buf_size) {
+        if (USBH_DEBUG) print_dbg(".. more to transfer\r\n");
 		// Need to send or receive other data
 		next_trans = ptr_job->buf_size - ptr_job->nb_trans;
 		max_trans = UHD_PIPE_MAX_TRANS;
@@ -1622,6 +1731,7 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 			if ((256L*uhd_get_pipe_size(pipe))<UHD_PIPE_MAX_TRANS) {
 				 max_trans = 256L * uhd_get_pipe_size(pipe);
 			}
+            if (USBH_DEBUG) print_dbg(".. in pipe\r\n");
 		}
 		if (max_trans < next_trans) {
 			// The USB hardware supports a maximum
@@ -1641,7 +1751,12 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 		}
 
 		if (uhd_is_pipe_out(pipe)) {
+            if (USBH_DEBUG) print_dbg(".. ");
+            if (USBH_DEBUG) print_dbg_ulong(uhd_get_pipe_size(pipe));
+            if (USBH_DEBUG) print_dbg(" out pipe\r\n");
+            
 			if (0 != next_trans % uhd_get_pipe_size(pipe)) {
+                if (USBH_DEBUG) print_dbg(".. enable short packet option\r\n");
 				// Enable short packet option
 				// else the DMA transfer is accepted
 				// and interrupt DMA valid but nothing is sent.
@@ -1665,6 +1780,7 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 
 		// Disable IRQs to have a short sequence
 		// between read of EOT_STA and DMA enable
+        
 		flags = cpu_irq_save();
 		if( !(uhd_pipe_dma_get_status(pipe)
 				& AVR32_USBB_UHDMA1_STATUS_EOT_STA_MASK)) {
@@ -1677,9 +1793,11 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 			uhd_pipe_dma_set_control(pipe, uhd_dma_ctrl);
 			ptr_job->nb_trans += next_trans;
 			cpu_irq_restore(flags);
+            if (USBH_DEBUG) print_dbg(".. exit 1\r\n");
 			return;
 		}
 		cpu_irq_restore(flags);
+        
 		// Here a ZLP has been received
 		// and the DMA transfer must be not started.
 		// It is the end of transfer
@@ -1695,10 +1813,12 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
 				uhd_raise_out_ready(pipe);
 			}
 			uhd_enable_out_ready_interrupt(pipe);
+            if (USBH_DEBUG) print_dbg(".. out exit\r\n");
 			return;
 		}
 	}
 	// Call callback to signal end of transfer
+    if (USBH_DEBUG) print_dbg(".. calling finish\r\n");
 	uhd_pipe_finish_job(pipe, UHD_TRANS_NOERROR);
 }
 
@@ -1710,11 +1830,15 @@ static void uhd_pipe_trans_complet(uint8_t pipe)
  */
 static void uhd_pipe_interrupt_dma(uint8_t pipe)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_pipe_interrupt_dma ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+        
 	uhd_pipe_job_t *ptr_job;
 	uint32_t nb_remaining;
 
 	if (uhd_pipe_dma_get_status(pipe)
 			& AVR32_USBB_UHDMA1_STATUS_CH_EN_MASK) {
+        if (USBH_DEBUG) print_dbg(" ignore eot_sta interrupt\r\n");
 		return; // Ignore EOT_STA interrupt
 	}
 	// Save number of data no transfered
@@ -1731,14 +1855,17 @@ static void uhd_pipe_interrupt_dma(uint8_t pipe)
 
 		// Set transfer complete to stop the transfer
 		ptr_job->buf_size = ptr_job->nb_trans;
+        if (USBH_DEBUG) print_dbg(" some remaining..");
 	}
 
 	if (uhd_is_pipe_out(pipe)) {
 		// Wait that all banks are free to freeze clock of OUT endpoint
 		// and call callback
 		uhd_enable_bank_interrupt(pipe);
+        if (USBH_DEBUG) print_dbg(" enable bank interrupt\r\n");
 	} else {
 		if (!Is_uhd_pipe_frozen(pipe)) {
+            if (USBH_DEBUG) print_dbg(" pipe not frozen..");
 			// Pipe is not freeze in case of :
 			// - incomplete transfer when the request number INRQ is not complete.
 			// - low USB speed and with a high CPU frequency,
@@ -1753,6 +1880,7 @@ static void uhd_pipe_interrupt_dma(uint8_t pipe)
 				}
 			}
 		}
+        if (USBH_DEBUG) print_dbg(" uhd_pipe_trans_complet\r\n");
 		uhd_pipe_trans_complet(pipe);
 	}
 }
@@ -1769,8 +1897,11 @@ static void uhd_pipe_interrupt_dma(uint8_t pipe)
  */
 static void uhd_pipe_interrupt(uint8_t pipe)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_pipe_interrupt ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
 	if (Is_uhd_bank_interrupt_enabled(pipe) && (0==uhd_nb_busy_bank(pipe))) {
 		uhd_disable_bank_interrupt(pipe);
+        if (USBH_DEBUG) print_dbg(" calling uhd_pipe_finish_job\r\n");
 		uhd_pipe_finish_job(pipe, UHD_TRANS_NOERROR);
 		return;
 	}
@@ -1781,17 +1912,20 @@ static void uhd_pipe_interrupt(uint8_t pipe)
 		uhd_ack_fifocon(pipe);
 		uhd_unfreeze_pipe(pipe);
 		uhd_enable_bank_interrupt(pipe);
+        if (USBH_DEBUG) print_dbg(" one bank is free then send a ZLP\r\n");
 		return;
 	}
 	if (Is_uhd_stall(pipe)) {
 		uhd_ack_stall(pipe);
 		uhd_reset_data_toggle(pipe);
 		uhd_ep_abort_pipe(pipe, UHD_TRANS_STALL);
+        if (USBH_DEBUG) print_dbg(" stall\r\n");
 		return;
 	}
 	if (Is_uhd_pipe_error(pipe)) {
 		// Get and ack error
 		uhd_ep_abort_pipe(pipe, uhd_pipe_get_error(pipe));
+        if (USBH_DEBUG) print_dbg(" get and ack error\r\n");
 		return;
 	}
 	Assert(false); // Error system
@@ -1816,6 +1950,9 @@ static void uhd_ep_abort_pipe(uint8_t pipe, uhd_trans_status_t status)
 
 	uhd_disable_out_ready_interrupt(pipe);
 	uhd_pipe_dma_set_control(pipe, 0);
+    if (USBH_DEBUG) print_dbg("-- uhd_ep_abort_pipe ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+    if (USBH_DEBUG) print_dbg("\r\n");
 	uhd_pipe_finish_job(pipe, status);
 }
 
@@ -1828,11 +1965,15 @@ static void uhd_ep_abort_pipe(uint8_t pipe, uhd_trans_status_t status)
  */
 static void uhd_pipe_finish_job(uint8_t pipe, uhd_trans_status_t status)
 {
+    if (USBH_DEBUG) print_dbg("-- uhd_pipe_finish_job ");
+    if (USBH_DEBUG) print_dbg_ulong(pipe);
+    if (USBH_DEBUG) print_dbg("\r\n");
 	uhd_pipe_job_t *ptr_job;
 
 	// Get job corresponding at endpoint
 	ptr_job = &uhd_pipe_job[pipe - 1];
 	if (ptr_job->busy == false) {
+        if (USBH_DEBUG) print_dbg("-- uhd_pipe_finish_job no job\r\n");
 		return; // No job running
 	}
 	ptr_job->busy = false;
@@ -1842,6 +1983,7 @@ static void uhd_pipe_finish_job(uint8_t pipe, uhd_trans_status_t status)
 	ptr_job->call_end(uhd_get_configured_address(pipe),
 			uhd_get_pipe_endpoint_address(pipe),
 			status, ptr_job->nb_trans);
+    if (USBH_DEBUG) print_dbg("------- call_end\r\n");
 }
 
 //@}

@@ -36,6 +36,8 @@ extern bool uhi_midi_in_run(uint8_t * buf, iram_size_t buf_size,
 extern bool uhi_midi_out_run(uint8_t * buf, iram_size_t buf_size,
 		uhd_callback_trans_t callback);
 
+extern bool uhi_midi_abort_read_if_not_busy(void);
+extern void uhi_midi_abort_in_and_out(void);
 
 // get virtual cable id
 /* extern u8 midi_get_cable_in(void); */

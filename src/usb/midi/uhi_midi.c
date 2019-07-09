@@ -20,6 +20,7 @@
 #include "midi.h"
 #include "usb_protocol_midi.h"
 #include "uhi_midi.h"
+#include "usbb_host.h"
 
 #define UHI_MIDI_PRINT_DBG 0
 #define UHI_MIDI_TIMEOUT 20000
@@ -252,6 +253,20 @@ void uhi_midi_uninstall(uhc_device_t* dev) {
   midi_change(dev, false);  
 }
 
+void uhi_midi_abort_in_and_out() {
+    print_dbg("-- !! uhi_midi_abort_in_and_out\r\n");
+    uhd_ep_abort(uhi_midi_dev.dev->address, uhi_midi_dev.ep_in);
+    uhd_ep_abort(uhi_midi_dev.dev->address, uhi_midi_dev.ep_out);
+    // uhd_send_resume();
+    // uhd_send_reset(NULL);
+    // udd_reset_endpoint(uhi_midi_dev.ep_out);
+    // udd_enable_endpoint_interrupt
+}
+
+bool uhi_midi_abort_read_if_not_busy() {
+    return uhi_abort_read_if_not_busy(uhi_midi_dev.dev->address, uhi_midi_dev.ep_in);
+}
+
 bool uhi_midi_in_run(uint8_t * buf, iram_size_t buf_size,
 		     uhd_callback_trans_t callback) {
 
@@ -268,7 +283,7 @@ bool uhi_midi_in_run(uint8_t * buf, iram_size_t buf_size,
 		    //// TEST:
 		    true, 
 		    buf, buf_size,
-		    UHI_MIDI_TIMEOUT, 
+		    UHI_MIDI_TIMEOUT,
 		    callback);
 }
 
@@ -294,6 +309,6 @@ bool uhi_midi_out_run(uint8_t * buf, iram_size_t buf_size,
 		    uhi_midi_dev.ep_out, 
 		    true, // automatic shortpacket for buf < wlen
 		    buf, buf_size,
-		    UHI_MIDI_TIMEOUT, 
+		    30,// UHI_MIDI_TIMEOUT, 
 		    callback);
 }

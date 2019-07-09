@@ -69,7 +69,7 @@
 // #define UHI_FTDI_CHANGE(dev, b_plug) ftdi_change(dev, b_plug)
 
 // midi functions
-// #define UHI_MIDI_CHANGE(dev, b_plug) midi_change(dev, b_plug)
+#define UHI_MIDI_CHANGE(dev, b_plug) midi_change(dev, b_plug)
 
 #define UHI_MSC_CHANGE(dev,b_plug) msc_change(dev, b_plug)
 

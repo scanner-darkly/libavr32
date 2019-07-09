@@ -14,6 +14,7 @@
 #include "events.h"
 #include "midi.h"
 #include "uhi_midi.h"
+#include "delay.h"
 
 
 //------------------------------------
@@ -56,6 +57,11 @@ static volatile u8 txPutIdx = 0;
 
 // current packet data
 static event_t ev = { .type = kEventMidiPacket, .data = 0x00000000 };
+
+#define MIDI_SEND_BUFFER_SIZE 4
+static u8 midi_to_send[MIDI_SEND_BUFFER_SIZE];
+static u8 midi_bytes_count;
+static u8 midi_send_scheduled = 0;
 
 //------------------------------------
 //----- static functions
@@ -104,6 +110,7 @@ static void midi_tx_done(usb_add_t add,
   }
 
   txBusy = false;
+  midi_send_scheduled = 0;
 }
 
 
@@ -112,9 +119,8 @@ static void midi_tx_done(usb_add_t add,
 
 // read and spawn events (non-blocking)
 extern void midi_read(void) {
-  if(!midi_connected) {
-    return;
-  }
+  if (!midi_connected) return;
+  
   if (rxBusy == false) {
     rxBusy = true;
     rxBytes = 0;
@@ -128,6 +134,40 @@ extern void midi_read(void) {
   }
   return;
 }
+
+extern void midi_poll() {
+    if (!midi_connected) return;
+  
+    if (midi_send_scheduled) {
+        if (rxBusy) {
+            if (!uhi_midi_abort_read_if_not_busy()) {
+                print_dbg("## can't abort read\r\n");
+                return; // read is in progress, wait till next cycle
+            }
+            print_dbg("## read aborted\r\n");
+        }
+        
+        print_dbg("## executing midi write\r\n");
+        midi_write(midi_to_send, midi_bytes_count);
+    }
+    
+    midi_read();
+}
+
+extern void midi_send(const u8* data, u8 bytes) {
+    print_dbg("## scheduling midi send..\r\n");
+    
+    if (midi_send_scheduled) {
+        print_dbg("## already scheduled\r\n");
+        return;
+    }
+    if (bytes > MIDI_SEND_BUFFER_SIZE) return;
+    
+    midi_bytes_count = bytes;
+    for (u8 i = 0; i < MIDI_SEND_BUFFER_SIZE; i++) midi_to_send[i] = data[i];
+    midi_send_scheduled = 1;
+}
+ 
 
 // write to MIDI device
 extern bool midi_write(const u8* data, u32 bytes) {
@@ -143,7 +183,7 @@ extern bool midi_write(const u8* data, u32 bytes) {
 	// FIXME: if txBuf is not large enough to hold all of data the extra
 	// msgs in data are dropped
 
-  u8 events = 1;
+  u8 events = 0;
   usb_midi_event_t* tx = &(txBuf[0]);
   const usb_midi_event_t* txEnd = &(txBuf[MIDI_RX_EVENT_BUF_SIZE]);
 
@@ -151,11 +191,15 @@ extern bool midi_write(const u8* data, u32 bytes) {
   const u8* dEnd = data + bytes;
 
   u8 status, com, ch;
+  
+  if (txBusy) return false;
 
+  /*
   if (txBusy == false) {
     print_dbg("\r\n midi_write: no buffers available");
     return false;
   }
+  */
 
   while (tx < txEnd && d < dEnd) {
     // clean the tx buffer
@@ -238,12 +282,15 @@ extern void midi_write_packet(u8 cable_number, u8 *pack) {
     pack[2]
   };
   txBuf[0] |= (cable_number << 4) & 0xf0;
+  
+  /*
   while (txBusy) {
     if(!midi_connected) {
       txBusy = false;
       return;
     }
   }
+  */
 
   txBusy = true;
   if (!uhi_midi_out_run((uint8_t*)txBuf, 4, &midi_tx_done)) {
@@ -255,13 +302,24 @@ extern void midi_write_packet(u8 cable_number, u8 *pack) {
 extern void midi_change(uhc_device_t* dev, u8 plug) {
   event_t e;
 
+  if (plug) 
+      print_dbg("## !! midi_change plugged\r\n");
+  else
+      print_dbg("## !! midi_change unplugged\r\n");
+  
   if (plug) { 
+    midi_send_scheduled = 0;
+    uhi_midi_abort_in_and_out();
+    delay_ms(1000);
     midi_connected = true;
     rxBusy = false;
     txBusy = false;
     e.type = kEventMidiConnect;
   } else {
     midi_connected = false;
+    rxBusy = false;
+    txBusy = false;
+    midi_send_scheduled = 0;
     e.type = kEventMidiDisconnect;
   }
 

@@ -9,6 +9,8 @@
 
 // read and spawn events (non-blocking)
 extern void midi_read(void);
+extern void midi_send(const u8* data, u8 bytes);
+extern void midi_poll(void);
 
 // write to MIDI device
 extern bool midi_write(const u8* data, u32 bytes);

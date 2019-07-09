@@ -340,6 +340,8 @@ bool uhd_ep_run(
 		uint16_t timeout,
 		uhd_callback_trans_t callback);
 
+bool uhi_abort_read_if_not_busy(usb_add_t add, usb_ep_t endp);
+
 /**
  * \brief Aborts an on-going transfer on an endpoint
  *
